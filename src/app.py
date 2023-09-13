@@ -5,13 +5,15 @@ from urban_dictionary import UrbanDictionary
 from dotenv import load_dotenv
 import sqlite3
 import json
+import operator
+
 
 app = Flask(__name__)
 load_dotenv()
 whatsapp_client = WhatsappClient(BASE_URL=os.environ['WHATSAPP_BASE_URL'], AUTHORIZATION_TOKEN=os.environ['WHATSAPP_AUTHORIZATION_TOKEN'])
-con = sqlite3.connect('bot.db', check_same_thread=False)
+con = sqlite3.connect('botdb.db', check_same_thread=False)
 cur = con.cursor()
-cur.execute("CREATE TABLE IF NOT EXISTS definitions(user_wa_id, word, last_definition_number)")
+cur.execute("CREATE TABLE IF NOT EXISTS definitions(user_wa_id, word, last_definition_number int, PRIMARY KEY (user_wa_id, word))")
 
 @app.route("/webhook", methods=['POST', 'GET'])
 def webhook_whatsapp():
@@ -34,9 +36,9 @@ def webhook_whatsapp():
             word = context.get('word')
 
             res = cur.execute("SELECT last_definition_number FROM definitions WHERE user_wa_id=? AND word=?", (id, word)).fetchone()
-            
+
             if res:
-                word, definition, thumbs_up, thumbs_down = get_word_and_definition(id, word, res[0])
+                word, definition, thumbs_up, thumbs_down = get_word_and_definition(word, res[0])
                 whatsapp_client.send_interactive_messages(
                     user_wa_id=id,
                     message=f"📖 {res[0]+1}º definition:\n{definition}\n",
@@ -64,15 +66,15 @@ def webhook_whatsapp():
                 word = ' '.join(word)
                 whatsapp_client.send_message(user_wa_id=id, message=f"Searching {word} 🔍...")
                 try:
-                    word, definition, thumbs_up, thumbs_down = get_word_and_definition(id, word)
+                    word, definition, thumbs_up, thumbs_down = get_word_and_definition(word)
                     whatsapp_client.send_interactive_messages(
                         user_wa_id=id,
-                        message=f"{word} 👀\n\n📖 Definition:\n{definition}\n",
+                        message=f"{word} 👀\n\n📖 Definition:\n{definition[:900]}\n",
                         footer=f"👍 ({thumbs_up}) / 👎 ({thumbs_down})",
                         action_id={"user_wa_id": id, "word": word}
                     )
                     db_data = (id, word, 1)
-                    cur.execute("INSERT INTO definitions VALUES(?, ?, ?)", db_data)
+                    cur.execute("REPLACE INTO definitions VALUES(?, ?, ?)", db_data)
                     con.commit()
                 except IndexError as e:
                     whatsapp_client.send_message(user_wa_id=id, message=f"There was no coincidences of the word {word} 🥲")
@@ -85,14 +87,16 @@ def webhook_whatsapp():
         return make_response(jsonify({'status': 'Ok'}), 200)
 
 
-def get_word_and_definition(id, word, definitionNumber = 0):
+def get_word_and_definition(word, definitionNumber = 0):
     urban_dictionary = UrbanDictionary()
     response = urban_dictionary.get_word(word)
-
-    word = response.get('list')[definitionNumber].get('word')
-    definition = response.get('list')[definitionNumber].get('definition')
-    thumbs_up = response.get('list')[0].get('thumbs_up')
-    thumbs_down = response.get('list')[0].get('thumbs_down')
+    response = response.get('list')
+    response.sort(key=operator.itemgetter('thumbs_up'), reverse=True)
+    
+    word = response[definitionNumber].get('word')
+    definition = response[definitionNumber].get('definition')
+    thumbs_up = response[definitionNumber].get('thumbs_up')
+    thumbs_down = response[definitionNumber].get('thumbs_down')
     
     return (word, definition, thumbs_up, thumbs_down)
 
