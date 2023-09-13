@@ -1,5 +1,5 @@
-from requests import post, get
-
+from requests import post
+import json
 class WhatsappClient:
     def __init__(self, BASE_URL, AUTHORIZATION_TOKEN):
         self.BASE_URL = BASE_URL
@@ -19,6 +19,36 @@ class WhatsappClient:
                     "body": message
                     }
                 }
+        response = post(f"{self.BASE_URL}/messages", json=data, headers=self.HEADERS)
+        print(response.text)
+
+    def send_interactive_messages(self, user_wa_id, action_id, message, footer):
+        data = {
+            "messaging_product":"whatsapp",
+            "recipient_type": "individual",
+            "to" :user_wa_id,
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {
+                    "text": message
+                },
+                "footer": {
+                    "text": footer
+                },
+                "action": {
+                "buttons": [
+                    {
+                    "type": "reply",
+                        "reply": {
+                            "id": json.dumps(action_id),
+                            "title": "next definition" 
+                        }
+                    }
+                ] 
+                }
+            }
+        }
         response = post(f"{self.BASE_URL}/messages", json=data, headers=self.HEADERS)
         print(response.text)
 
