@@ -30,11 +30,11 @@ def webhook_whatsapp():
             elif('definition' in message.lower()):
                 word = message.split(' ')[1:]
                 word = ' '.join(word)
-                whatsapp_client.send_message(user_wa_id=id, message=f"Buscando la definición de {word}...")
+                whatsapp_client.send_message(user_wa_id=id, message=f"Searching {word} 🔍...")
                 try:
                     urban_dictionary = UrbanDictionary()
                     response = urban_dictionary.get_word(word)
-                    whatsapp_client.send_message(user_wa_id=id, message=f"Urban definition: {response.get('list')[0].get('definition')}")
+                    whatsapp_client.send_message(user_wa_id=id, message=f"{response.get('list')[0].get('word')} 👀\n\n📖 Definition:\n{response.get('list')[0].get('definition')}\n\n👍 ({response.get('list')[0].get('thumbs_up')}) / 👎 ({response.get('list')[0].get('thumbs_down')})")
                 except:
                     whatsapp_client.send_message(user_wa_id=id, message=f"Error al buscar la definición de {word}")
             else:
@@ -47,4 +47,4 @@ def hello_world():
     return "<h1 style='color:red'>Hello World!</h1>"
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
